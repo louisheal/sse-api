@@ -9,9 +9,8 @@ app = FastAPI()
 
 async def event_generator():
     while True:
-        # This is where you would implement your real-time data generation
         yield f"data: {time.time()}\n\n"
-        time.sleep(1)  # simulate some delay in sending data
+        time.sleep(1)
 
 
 @app.get("/events")
