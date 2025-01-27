@@ -1,22 +1,37 @@
-import time
-
+import asyncio
 import uvicorn
-from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
+from starlette.applications import Starlette
+from starlette.routing import Route
+from sse_starlette.sse import EventSourceResponse
+from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
 
-app = FastAPI()
+
+queue = asyncio.Queue()
 
 
-async def event_generator():
+async def hello() -> ...:
+    
     while True:
-        yield f"data: {time.time()}\n\n"
-        time.sleep(1)
+        data = await queue.get()
+        yield {"data": data}
 
 
-@app.get("/events")
-async def sse():
-    return StreamingResponse(event_generator())
+async def sse(request: Request) -> EventSourceResponse:
+    return EventSourceResponse(hello())
+
+async def random(request: Request) -> Response:
+    data = await request.json()
+    await queue.put(data)
+    return Response("Success", 200)
+
+
+middleware = [Middleware(CORSMiddleware, allow_origins=['*'])]
+routes = [Route("/events", endpoint=sse), Route("/data", endpoint=random, methods=["POST"])]
+app = Starlette(debug=True, routes=routes, middleware=middleware)
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0")
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
